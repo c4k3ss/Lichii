@@ -18,6 +18,7 @@
 #include "audio_core/sink/sink_stream.h"
 #include "common/common_types.h"
 #include "common/fixed_point.h"
+#include "common/game_presets.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "core/core.h"
@@ -96,7 +97,12 @@ void SinkStream::AppendBuffer(SinkBuffer& buffer, std::span<s16> samples) {
 /// 240-frame blocks) gets silence for the rest of every callback. The sample ring must hold the
 /// queued blocks and the one playing, at the device's channel count.
 u32 SinkStream::SysmixQueueLimit() const {
-    constexpr u64 MinimumBlocks = 3;
+    // Three blocks are 15 ms at 48 kHz: any emulation pause longer than that drains the device
+    // and is heard as a hitch. The Duskbloods network test pauses for shader builds and at its
+    // round transitions, so it keeps eight blocks queued (40 ms) and pays 25 ms more latency.
+    const u64 MinimumBlocks =
+        Settings::GetCurrentProgramID() == Settings::DuskbloodsNetworkTestProgramId ? u64{8}
+                                                                                 : u64{3};
     const u64 ring_blocks = SampleRingCapacity / (u64{TargetSampleCount} * device_channels) - 1;
     const u64 request = largest_request_frames.load(std::memory_order_relaxed);
     const u64 blocks = (request + TargetSampleCount - 1) / TargetSampleCount + 1;
