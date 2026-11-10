@@ -26,7 +26,10 @@ public:
     // GPU-only regions get memory only where guest memory is written and sparse regions take
     // their tiles from the game's own memory (216), so much less of it is used (title 1: ~1.1 GiB,
     // all of it at boot); all of it counts against the host's commit limit from boot.
-    static constexpr size_t Nx2GraphicsServerMemorySize = 2ULL * 1024 * 1024 * 1024; // 2_GiB
+    // The Duskbloods network test's six GPU-only regions come to 2.4 GiB docked (title 1: ~1.1 GiB),
+    // so it gets 3 GiB: a region the pool cannot hold is left lazily backed and the game's
+    // constant buffers written there read back as zero (black scene).
+    static size_t Nx2GraphicsServerMemorySize();
 
 public:
     // Switch 2 "remote memory" (svcGetInfo types 31 and 32), for The Duskbloods network test

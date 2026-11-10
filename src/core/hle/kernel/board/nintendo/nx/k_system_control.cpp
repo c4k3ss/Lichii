@@ -94,7 +94,7 @@ size_t KSystemControl::Init::GetIntendedMemorySize() {
     case Smc::MemorySize_10GB:
         return 10_GiB;
     case Smc::MemorySize_12GB:
-        return 12_GiB + KSystemControl::Nx2GraphicsServerMemorySize;
+        return 12_GiB + KSystemControl::Nx2GraphicsServerMemorySize();
     }
 }
 
@@ -125,6 +125,11 @@ constexpr size_t DuskbloodsRemoteMemorySize = 512_MiB;
 
 void KSystemControl::SetApplicationProgramId(u64 program_id) {
     g_application_program_id = program_id;
+}
+
+size_t KSystemControl::Nx2GraphicsServerMemorySize() {
+    constexpr size_t base = 2_GiB;
+    return g_application_program_id == DuskbloodsNetworkTestProgramId ? base + 1_GiB : base;
 }
 
 size_t KSystemControl::Nx2RemoteMemorySize() {
