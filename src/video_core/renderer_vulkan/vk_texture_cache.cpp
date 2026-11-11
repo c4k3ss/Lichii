@@ -2090,6 +2090,14 @@ bool TextureCacheRuntime::TemporalUpscale(Framebuffer* dst_framebuffer, ImageVie
         const auto view_extent = host_extent(view);
         return view_extent && VideoCommon::DlssContract::FitsExtent(requested, *view_extent);
     };
+    // With resolution scaling the game's region is rendered larger on the host, so the region
+    // and the jitter (in render pixels) scale with it; the motion scale is in output UV and the
+    // output already comes scaled from the framebuffer. Without this a 1.5x scale showed the
+    // top-left two thirds of the picture, enlarged.
+    if (const Image* image = input_color.BackingImage(); image && image->IsRescaled()) {
+        render_size = {resolution.ScaleUp(render_size[0]), resolution.ScaleUp(render_size[1])};
+        jitter = {jitter[0] * resolution.up_factor, jitter[1] * resolution.up_factor};
+    }
     const VkExtent2D output_extent = dst_framebuffer->RenderArea();
     if (!plain(dst) || !plain(input_color) || !fits(input_color, render_size) ||
         !fits(dst, {output_extent.width, output_extent.height}) ||
