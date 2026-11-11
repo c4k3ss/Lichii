@@ -1246,8 +1246,15 @@ void KeplerCompute::RememberDlssMotionVectors() {
     dlss_motion_color = color->Address();
     const u32 depth_offset = dlss_chain.render_region ? 0x288 : 0x298;
     const auto depth = cbuf.size.Value() >= 0x29c ? image(depth_offset) : std::nullopt;
-    if (depth && depth->format == Texture::TextureFormat::Z32 && depth->Address() != 0 &&
-        same_grid(*depth) && depth->IsBlockLinear()) {
+    // The Duskbloods network test hands DLSS its 24-bit depth with stencil (S8Z24), which samples
+    // like a 32-bit float through a depth view.
+    const auto depth_format = [](const Texture::TICEntry& tic) {
+        return tic.format == Texture::TextureFormat::Z32 ||
+               tic.format == Texture::TextureFormat::Z24S8 ||
+               tic.format == Texture::TextureFormat::S8Z24;
+    };
+    if (depth && depth_format(*depth) && depth->Address() != 0 && same_grid(*depth) &&
+        depth->IsBlockLinear()) {
         dlss_depth = *depth;
     } else {
         dlss_depth.reset();
