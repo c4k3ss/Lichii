@@ -1401,8 +1401,24 @@ bool KeplerCompute::ScaleDlssRenderRegion(GPUVAddr constants,
     static const std::array<f32, 2> motion_knob = knob("EDEN_NX2_DUSK_MOTION_SCALE", {-1.0f, -1.0f});
     static const f32 jitter_knob = knob("EDEN_NX2_DUSK_JITTER_SCALE", {1.0f, 1.0f})[0];
     static const bool no_depth = std::getenv("EDEN_NX2_DUSK_NO_DEPTH") != nullptr;
+    // The motion vectors the DLSS pass is handed are the game's G-buffer velocity (UV units)
+    // converted by its NGX wrapper: both axes times -1080 (a least-squares fit over a frame dump
+    // at a 1108x624 region of 1920x1080: x = -1078 * G-buffer, y = -1070 * G-buffer, correlation
+    // 0.98, residuals under 0.04 px). The upscale wants an output-UV offset to the previous frame
+    // of the opposite sign to the G-buffer, so the prepared vectors divide by the target's height
+    // on both axes with no negation. EDEN_NX2_DUSK_MOTION_SIGNS=<sx>,<sy> changes the signs,
+    // EDEN_NX2_DUSK_MOTION_REGION=1 divides by the region's width and height instead, and
+    // EDEN_NX2_DUSK_MOTION_SCALE=<x>[,<y>] replaces it all with a fixed UV scale (0 keeps the
+    // history unreprojected).
+    static const std::array<f32, 2> signs = knob("EDEN_NX2_DUSK_MOTION_SIGNS", {1.0f, 1.0f});
+    static const bool by_region = std::getenv("EDEN_NX2_DUSK_MOTION_REGION") != nullptr;
+    static const bool fixed_scale = std::getenv("EDEN_NX2_DUSK_MOTION_SCALE") != nullptr;
+    const f32 x_pixels = static_cast<f32>(by_region ? width : input->Height());
+    const f32 y_pixels = static_cast<f32>(by_region ? height : input->Height());
     const std::array<f32, 2> motion_scale =
-        use_history ? motion_knob : std::array{0.0f, 0.0f};
+        !use_history ? std::array{0.0f, 0.0f}
+        : fixed_scale ? motion_knob
+                      : std::array{signs[0] / x_pixels, signs[1] / y_pixels};
     const std::array<f32, 2> jitter_offset =
         jitter ? std::array{jitter->offset[0] * jitter_knob, jitter->offset[1] * jitter_knob}
                : std::array{0.0f, 0.0f};
@@ -1424,6 +1440,10 @@ bool KeplerCompute::ScaleDlssRenderRegion(GPUVAddr constants,
                  motion ? static_cast<u32>(motion->format.Value()) : 0,
                  depth ? static_cast<u32>(depth->format.Value()) : 0, jitter_offset[0],
                  jitter_offset[1], motion_scale[0], motion_scale[1]);
+        if (motion) {
+            LOG_INFO(HW_GPU, "DLSS replacement: motion texture at {:#x} component type {}",
+                     motion->Address(), static_cast<u32>(motion->r_type.Value()));
+        }
     }
     return done;
 }
