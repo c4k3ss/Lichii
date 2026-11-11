@@ -1384,19 +1384,46 @@ bool KeplerCompute::ScaleDlssRenderRegion(GPUVAddr constants,
     }
     // The game's motion vectors point from the previous position to the current one (a rightward
     // pan gives negative x while the scene moves left), the reverse of what the upscale expects.
+    // Test knobs (The Duskbloods network test, until its contract is settled on every GPU):
+    // EDEN_NX2_DUSK_MOTION_SCALE=<x>[,<y>] replaces the -1 (0 keeps the history unreprojected),
+    // EDEN_NX2_DUSK_JITTER_SCALE=<f> scales the game's jitter (0 drops it, -1 flips it),
+    // EDEN_NX2_DUSK_NO_DEPTH=1 hands the upscale no depth.
+    static const auto knob = [](const char* name, std::array<f32, 2> fallback) {
+        const char* value = std::getenv(name);
+        if (!value) {
+            return fallback;
+        }
+        char* end{};
+        const f32 x = static_cast<f32>(std::strtod(value, &end));
+        const f32 y = (end && *end == ',') ? static_cast<f32>(std::strtod(end + 1, nullptr)) : x;
+        return std::array{x, y};
+    };
+    static const std::array<f32, 2> motion_knob = knob("EDEN_NX2_DUSK_MOTION_SCALE", {-1.0f, -1.0f});
+    static const f32 jitter_knob = knob("EDEN_NX2_DUSK_JITTER_SCALE", {1.0f, 1.0f})[0];
+    static const bool no_depth = std::getenv("EDEN_NX2_DUSK_NO_DEPTH") != nullptr;
     const std::array<f32, 2> motion_scale =
-        use_history ? std::array{-1.0f, -1.0f} : std::array{0.0f, 0.0f};
+        use_history ? motion_knob : std::array{0.0f, 0.0f};
+    const std::array<f32, 2> jitter_offset =
+        jitter ? std::array{jitter->offset[0] * jitter_knob, jitter->offset[1] * jitter_knob}
+               : std::array{0.0f, 0.0f};
     const bool done = rasterizer->AccelerateTemporalUpscale(
         surface(*input), surface(*output), motion_surface,
-        use_history && depth ? &*depth : nullptr,
-        jitter ? jitter->offset : std::array{0.0f, 0.0f}, motion_scale, use_history,
-        std::array{width, height});
+        use_history && depth && !no_depth ? &*depth : nullptr, jitter_offset, motion_scale,
+        use_history, std::array{width, height});
     static u32 last_width{};
-    if (width != last_width) {
+    static u32 logged_frames{};
+    if (width != last_width || logged_frames < 12) {
         last_width = width;
-        LOG_INFO(HW_GPU, "DLSS replacement: {} region {}x{} of {}x{} to {}x{}",
+        ++logged_frames;
+        LOG_INFO(HW_GPU,
+                 "DLSS replacement: {} region {}x{} of {}x{} to {}x{}; history={} motion={}x{} "
+                 "({}) depth={} jitter={},{} motion_scale={},{}",
                  done ? "scaled" : "could not scale", width, height, input->Width(),
-                 input->Height(), output->Width(), output->Height());
+                 input->Height(), output->Width(), output->Height(), use_history,
+                 motion ? motion->Width() : 0, motion ? motion->Height() : 0,
+                 motion ? static_cast<u32>(motion->format.Value()) : 0,
+                 depth ? static_cast<u32>(depth->format.Value()) : 0, jitter_offset[0],
+                 jitter_offset[1], motion_scale[0], motion_scale[1]);
     }
     return done;
 }
