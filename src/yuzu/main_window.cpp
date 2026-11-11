@@ -11,6 +11,7 @@
 #include <QSysInfo>
 #include <boost/algorithm/string/split.hpp>
 #include "common/fs/path_util.h"
+#include "common/game_presets.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "frontend_common/settings_generator.h"
@@ -2160,6 +2161,11 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
         QtCommon::system->ApplySettings();
     }
 
+    if (Settings::ApplyDuskbloodsPreset(Settings::values, title_id)) {
+        QtCommon::system->ApplySettings();
+        Settings::UpdateGPUAccuracy();
+        LOG_INFO(Config, "Applied The Duskbloods network test's required settings for this session");
+    }
     PrepareShaderPrecache(title_id, std::filesystem::path{filename.toStdU16String()});
     Settings::LogSettings();
 
