@@ -1715,8 +1715,11 @@ bool TextureCache<P>::TemporalUpscale(const Tegra::Engines::Fermi2D::Surface& ds
         PrepareImage(dst_id, true, false);
         if (depth_id) {
             PrepareImage(depth_id, false, false);
+            const PixelFormat depth_format = slot_images[depth_id].info.format;
             if (slot_images[depth_id].info.num_samples != 1 ||
-                slot_images[depth_id].info.format != PixelFormat::D32_FLOAT) {
+                (depth_format != PixelFormat::D32_FLOAT &&
+                 depth_format != PixelFormat::D24_UNORM_S8_UINT &&
+                 depth_format != PixelFormat::S8_UINT_D24_UNORM)) {
                 return false;
             }
         }
@@ -1780,7 +1783,8 @@ bool TextureCache<P>::TemporalUpscale(const Tegra::Engines::Fermi2D::Surface& ds
             if (const std::optional base = slot_images[depth_id].TryFindBase(depth->Address())) {
                 const SubresourceRange range{.base = *base, .extent = {1, 1}};
                 depth_view = FindOrEmplaceImageView(
-                    depth_id, ImageViewInfo(ImageViewType::e2D, PixelFormat::D32_FLOAT, range));
+                    depth_id,
+                    ImageViewInfo(ImageViewType::e2D, slot_images[depth_id].info.format, range));
             }
             if (!depth_view) {
                 return false;

@@ -2112,8 +2112,12 @@ bool TextureCacheRuntime::TemporalUpscale(Framebuffer* dst_framebuffer, ImageVie
                         !same_size(motion_vectors))) {
         return false;
     }
+    const auto depth_format = [](PixelFormat format) {
+        return format == PixelFormat::D32_FLOAT || format == PixelFormat::D24_UNORM_S8_UINT ||
+               format == PixelFormat::S8_UINT_D24_UNORM;
+    };
     if (use_history && depth && (!plain(*depth) || !fits(*depth, render_size) ||
-                                depth->format != PixelFormat::D32_FLOAT || !same_size(*depth))) {
+                                !depth_format(depth->format) || !same_size(*depth))) {
         return false;
     }
     if (use_history && depth && UpscaleWithFsr3(dst_framebuffer, input_color, motion_vectors, *depth, render_size,
