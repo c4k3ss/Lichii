@@ -43,3 +43,9 @@ EDEN_NX2_FENCE_BATCH=1
 #EDEN_NX2_SPLIT_SKIP=1
 #EDEN_NX2_AUTO_STUB=1
 #EDEN_NX2_KEEP_ASTC=1
+
+# --- The Duskbloods network test ---
+# Lichii's temporal upscale draws the frame in place of the game's DLSS network. Its history
+# weighs 0.1 per frame by default; this game's fine textures ghost less with 0.3 and a 1.0 clip.
+EDEN_NX2_TEMPORAL_WEIGHT=0.3
+EDEN_NX2_TEMPORAL_CLIP=1.0
