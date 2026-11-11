@@ -1397,19 +1397,19 @@ bool KeplerCompute::ScaleDlssRenderRegion(GPUVAddr constants,
     static const std::array<f32, 2> motion_knob = knob("EDEN_NX2_DUSK_MOTION_SCALE", {-1.0f, -1.0f});
     static const f32 jitter_knob = knob("EDEN_NX2_DUSK_JITTER_SCALE", {1.0f, 1.0f})[0];
     static const bool no_depth = std::getenv("EDEN_NX2_DUSK_NO_DEPTH") != nullptr;
-    // The motion vectors the DLSS pass is handed are the game's G-buffer velocity (UV units)
-    // converted by its NGX wrapper: both axes times -1080 (a least-squares fit over a frame dump
-    // at a 1108x624 region of 1920x1080: x = -1078 * G-buffer, y = -1070 * G-buffer, correlation
-    // 0.98, residuals under 0.04 px). The upscale wants an output-UV offset to the previous frame
-    // of the opposite sign to the G-buffer, so the prepared vectors divide by the target's height
-    // on both axes with no negation. EDEN_NX2_DUSK_MOTION_SIGNS=<sx>,<sy> changes the signs,
-    // EDEN_NX2_DUSK_MOTION_REGION=1 divides by the region's width and height instead, and
+    // The motion vectors the DLSS pass is handed are the game's G-buffer velocity converted by
+    // its NGX wrapper to pixels of the whole target (1920x1080 docked, whatever region of it is
+    // rendered), pointing to the previous frame's position. The upscale wants an output-UV offset
+    // to the previous frame, so they divide by the target's width and height, no negation: found
+    // by walking and turning in the hub with each candidate (a frame dump had both textures:
+    // prepared = -1080 * G-buffer on both axes). EDEN_NX2_DUSK_MOTION_SIGNS=<sx>,<sy> changes the
+    // signs, EDEN_NX2_DUSK_MOTION_REGION=1 divides by the rendered region instead, and
     // EDEN_NX2_DUSK_MOTION_SCALE=<x>[,<y>] replaces it all with a fixed UV scale (0 keeps the
     // history unreprojected).
     static const std::array<f32, 2> signs = knob("EDEN_NX2_DUSK_MOTION_SIGNS", {1.0f, 1.0f});
     static const bool by_region = std::getenv("EDEN_NX2_DUSK_MOTION_REGION") != nullptr;
     static const bool fixed_scale = std::getenv("EDEN_NX2_DUSK_MOTION_SCALE") != nullptr;
-    const f32 x_pixels = static_cast<f32>(by_region ? width : input->Height());
+    const f32 x_pixels = static_cast<f32>(by_region ? width : input->Width());
     const f32 y_pixels = static_cast<f32>(by_region ? height : input->Height());
     const std::array<f32, 2> motion_scale =
         !use_history ? std::array{0.0f, 0.0f}
