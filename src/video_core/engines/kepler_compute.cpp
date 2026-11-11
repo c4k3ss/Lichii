@@ -1255,6 +1255,38 @@ void KeplerCompute::RememberDlssMotionVectors() {
         dlss_depth = *depth;
     } else {
         dlss_depth.reset();
+        // Once: what the pass points at in its depth slot when it is not usable, so a title whose
+        // wrapper hands DLSS depth in another format or grid can be wired up.
+        static bool logged{};
+        if (!logged && dlss_chain.render_region) {
+            logged = true;
+            if (depth) {
+                LOG_INFO(HW_GPU,
+                         "DLSS replacement: depth slot +{:#x} holds format {} component {} {}x{} at "
+                         "{:#x} block_linear={} (color {}x{}); no depth is used",
+                         depth_offset, static_cast<u32>(depth->format.Value()),
+                         static_cast<u32>(depth->r_type.Value()), depth->Width(), depth->Height(),
+                         depth->Address(), depth->IsBlockLinear(), color->Width(), color->Height());
+            } else {
+                LOG_INFO(HW_GPU, "DLSS replacement: depth slot +{:#x} holds no texture (cb0 size {:#x})",
+                         depth_offset, cbuf.size.Value());
+            }
+            // The neighbouring handles, for a depth that lives at another offset.
+            for (u32 offset = 0x278; offset + 4 <= std::min<u32>(cbuf.size.Value(), 0x2c0); offset += 4) {
+                const u32 handle = memory_manager.Read<u32>(cbuf_address + offset);
+                const u32 index = handle & 0xfffff;
+                if (!handle || index > regs.tic.limit) {
+                    continue;
+                }
+                const auto tic = GetTICEntry(index);
+                if (tic.Address() == 0) {
+                    continue;
+                }
+                LOG_INFO(HW_GPU, "DLSS replacement: cb0+{:#x} handle {:#x}: format {} component {} {}x{} at {:#x}",
+                         offset, handle, static_cast<u32>(tic.format.Value()),
+                         static_cast<u32>(tic.r_type.Value()), tic.Width(), tic.Height(), tic.Address());
+            }
+        }
     }
 }
 
