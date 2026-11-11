@@ -3,6 +3,7 @@
 #pragma once
 
 #include "common/common_types.h"
+#include "common/settings.h"
 
 namespace Settings {
 
