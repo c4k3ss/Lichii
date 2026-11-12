@@ -642,11 +642,21 @@ static bool NoDrefSamples() {
     return enabled;
 }
 
+// The lit constant for EDEN_NX2_NO_DREF, with the sample's residency pseudo-op (if a shader
+// reads it) defined as resident, as Emit() would have.
+static Id ConstantDref(EmitContext& ctx, IR::Inst* inst) {
+    if (IR::Inst* const sparse{inst->GetAssociatedPseudoOperation(IR::Opcode::GetSparseFromOp)}) {
+        sparse->SetDefinition(ctx.true_value);
+        sparse->Invalidate();
+    }
+    return ctx.Const(1.0f);
+}
+
 Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index,
                                   Id coords, Id dref, Id bias_lc, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
     if (NoDrefSamples()) {
-        return ctx.Const(1.0f);
+        return ConstantDref(ctx, inst);
     }
     if (ctx.stage == Stage::Fragment) {
         const ImageOperands operands(ctx, info.has_bias != 0, false, info.has_lod_clamp != 0,
@@ -670,7 +680,7 @@ Id EmitImageSampleDrefExplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Va
                                   Id coords, Id dref, Id lod, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
     if (NoDrefSamples()) {
-        return ctx.Const(1.0f);
+        return ConstantDref(ctx, inst);
     }
     const ImageOperands operands(ctx, false, true, false, lod, offset);
     return Emit(&EmitContext::OpImageSparseSampleDrefExplicitLod,

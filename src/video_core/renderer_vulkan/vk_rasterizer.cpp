@@ -1673,12 +1673,19 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
-    if (frame_dump.Capturing() && FrameDumpDrawBreak(frame_dump.Draws())) {
-        // EDEN_NX2_FRAME_DUMP_DRAWS=<first>-<last>: end the render pass after each draw in
-        // the range (and after the one before it), so the capture records every draw of a
-        // pass as its own pass entry. Test knob for finding which draw of a pass writes what.
-        scheduler.RequestOutsideRenderPassOperationContext();
+    FrameDumpAfterDraw();
+}
+
+void RasterizerVulkan::FrameDumpAfterDraw() {
+    if (!frame_dump.Capturing() || !FrameDumpDrawBreak(frame_dump.Draws())) {
+        return;
     }
+    // EDEN_NX2_FRAME_DUMP_DRAWS=<first>-<last>: close the capture's pass after each draw in
+    // the range (and after the one before it), so every draw of a render pass lands in the
+    // manifest as its own pass entry. EndPass records the targets, which leaves the Vulkan
+    // render pass; the next draw begins a new one on the same framebuffer. Test knob only:
+    // a pass whose deferred MSAA clear stores with DONT_CARE loses its samples at the split.
+    frame_dump.EndPass();
 }
 
 bool RasterizerVulkan::FrameDumpDrawBreak(u32 next_draw) {
@@ -1789,6 +1796,7 @@ void RasterizerVulkan::DrawIndirect() {
         }
     }, true);
     buffer_cache.SetDrawIndirect(nullptr);
+    FrameDumpAfterDraw();
 }
 
 VideoCommon::OotNetwork::BypassState* RasterizerVulkan::OotNetworkBypass() {
