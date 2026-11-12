@@ -1680,7 +1680,8 @@ void RasterizerVulkan::FrameDumpAfterDraw() {
     if (!frame_dump.Capturing()) {
         return;
     }
-    if (!FrameDumpDrawBreak(frame_dump.Draws()) && !frame_dump.LastDrawSplits()) {
+    const bool split_shader = frame_dump.TakeDrawSplit();
+    if (!FrameDumpDrawBreak(frame_dump.Draws()) && !split_shader) {
         return;
     }
     // EDEN_NX2_FRAME_DUMP_DRAWS=<first>-<last>: close the capture's pass after each draw in

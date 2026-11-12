@@ -16,6 +16,7 @@
 #include <string_view>
 #include <thread>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "common/common_types.h"
@@ -133,9 +134,11 @@ public:
         return draws;
     }
 
-    /// Whether the last noted draw used a shader named in EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS.
-    [[nodiscard]] bool LastDrawSplits() const noexcept {
-        return last_draw_splits;
+    /// Whether the draw noted since the last call used a shader named in
+    /// EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS. Consumes the flag, so a draw that was never noted
+    /// (PrepareDraw returned early) cannot inherit the previous draw's answer.
+    [[nodiscard]] bool TakeDrawSplit() noexcept {
+        return std::exchange(last_draw_splits, false);
     }
 
     [[nodiscard]] bool CapturingSampled() const noexcept {
