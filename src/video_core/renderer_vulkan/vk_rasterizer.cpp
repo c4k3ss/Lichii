@@ -1673,6 +1673,30 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
+    if (frame_dump.Capturing() && FrameDumpDrawBreak(frame_dump.Draws())) {
+        // EDEN_NX2_FRAME_DUMP_DRAWS=<first>-<last>: end the render pass after each draw in
+        // the range (and after the one before it), so the capture records every draw of a
+        // pass as its own pass entry. Test knob for finding which draw of a pass writes what.
+        scheduler.RequestOutsideRenderPassOperationContext();
+    }
+}
+
+bool RasterizerVulkan::FrameDumpDrawBreak(u32 next_draw) {
+    static const std::pair<u32, u32> range = [] {
+        const char* value = std::getenv("EDEN_NX2_FRAME_DUMP_DRAWS");
+        u32 first = 0, last = 0;
+        if (value == nullptr || std::sscanf(value, "%u-%u", &first, &last) != 2 || last < first) {
+            return std::pair<u32, u32>{1, 0};
+        }
+        return std::pair<u32, u32>{first, last};
+    }();
+    if (range.first > range.second || next_draw == 0) {
+        return false;
+    }
+    // next_draw is the count noted so far, so the draw just recorded is next_draw - 1. Break
+    // after draws first - 1 .. last.
+    const u32 done = next_draw - 1;
+    return done + 1 >= range.first && done <= range.second;
 }
 
 void RasterizerVulkan::DrawIndirect() {

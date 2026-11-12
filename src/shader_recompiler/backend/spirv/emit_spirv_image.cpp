@@ -4,6 +4,9 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
+#include <string_view>
+
 #include <boost/container/static_vector.hpp>
 
 #include "common/settings.h"
@@ -629,9 +632,22 @@ Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value&
     return is_integer ? ctx.OpBitcast(ctx.F32[4], result) : result;
 }
 
+// EDEN_NX2_NO_DREF=1: every depth-compare sample reads as fully lit (1.0). Test knob for
+// telling shadow-map terms apart from the rest of a light shader.
+static bool NoDrefSamples() {
+    static const bool enabled = [] {
+        const char* value = std::getenv("EDEN_NX2_NO_DREF");
+        return value != nullptr && std::string_view{value} == "1";
+    }();
+    return enabled;
+}
+
 Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index,
                                   Id coords, Id dref, Id bias_lc, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
+    if (NoDrefSamples()) {
+        return ctx.Const(1.0f);
+    }
     if (ctx.stage == Stage::Fragment) {
         const ImageOperands operands(ctx, info.has_bias != 0, false, info.has_lod_clamp != 0,
                                      bias_lc, offset);
@@ -653,6 +669,9 @@ Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Va
 Id EmitImageSampleDrefExplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index,
                                   Id coords, Id dref, Id lod, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
+    if (NoDrefSamples()) {
+        return ctx.Const(1.0f);
+    }
     const ImageOperands operands(ctx, false, true, false, lod, offset);
     return Emit(&EmitContext::OpImageSparseSampleDrefExplicitLod,
                 &EmitContext::OpImageSampleDrefExplicitLod, ctx, inst, ctx.F32[1],

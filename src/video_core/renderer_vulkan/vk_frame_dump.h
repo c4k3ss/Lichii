@@ -128,6 +128,11 @@ public:
         return schedule.Capturing();
     }
 
+    /// Draws noted so far in this capture (the next draw's index).
+    [[nodiscard]] u32 Draws() const noexcept {
+        return draws;
+    }
+
     [[nodiscard]] bool CapturingSampled() const noexcept {
         return schedule.Capturing() && schedule.Sampled();
     }
