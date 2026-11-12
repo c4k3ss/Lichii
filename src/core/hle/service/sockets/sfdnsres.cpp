@@ -110,6 +110,8 @@ static void RememberRedirectedHost(const std::vector<Network::AddrInfo>& address
     for (const auto& addrinfo : addresses) {
         Nextendo::RememberHost(Network::IPv4AddressToString(addrinfo.addr.ip), host);
     }
+}
+
 // nsd's resolve replaces '%' in a host name with the environment identifier; Pia asks for
 // nncs1-%.n.n.srv.nintendo.net that way. From Droplet.
 static std::string NsdResolve(std::string host) {
