@@ -34,6 +34,11 @@
 #include "core/hle/service/server_manager.h"
 #include "core/loader/loader.h"
 
+// windows.h, pulled in through the network headers, defines CreateEvent as a macro.
+#ifdef CreateEvent
+#undef CreateEvent
+#endif
+
 namespace Service::Account {
 
 // The ID token games forward to their online server at login. With a private server set, it
