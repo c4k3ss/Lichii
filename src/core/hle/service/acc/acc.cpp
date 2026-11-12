@@ -45,7 +45,6 @@ namespace Service::Account {
 // carries this emulator's friend code and the game's build ID (sockets/online_redirect.h);
 // otherwise it stays empty (zeros, as before). Returns the size written. From Droplet.
 static u32 WriteOnlineIdToken(HLERequestContext& ctx, const Core::System& system) {
-    std::vector<u8> token_data(std::max<size_t>(ctx.GetWriteBufferSize(), 0x100));
     const auto& id = system.GetApplicationProcessBuildID();
     size_t length = id.size();
     while (length > 0 && id[length - 1] == 0) {
@@ -58,15 +57,17 @@ static u32 WriteOnlineIdToken(HLERequestContext& ctx, const Core::System& system
     const std::string token = Sockets::OnlineRedirect::IdentityToken(build);
     const size_t capacity = ctx.GetWriteBufferSize();
     if (!token.empty() && token.size() < capacity) {
+        std::vector<u8> token_data(token.size() + 1);
         std::memcpy(token_data.data(), token.data(), token.size());
-        (void)ctx.WriteBuffer(token_data.data(), token.size() + 1);
+        (void)ctx.WriteBuffer(token_data.data(), token_data.size());
         return static_cast<u32>(token.size());
     }
     if (!token.empty()) {
         LOG_WARNING(Service_ACC, "Online ID token ({} bytes) does not fit the {}-byte buffer",
                     token.size(), capacity);
     }
-    (void)ctx.WriteBuffer(token_data.data(), std::min<size_t>(token_data.size(), 0x100));
+    const std::vector<u8> zeros(0x100);
+    (void)ctx.WriteBuffer(zeros.data(), zeros.size());
     return 0x100;
 }
 
@@ -769,6 +770,19 @@ static bool ReplyNextendoIdToken(Core::System& system, HLERequestContext& ctx) {
     return true;
 }
 
+// While a private online server is set, it is the server the game's DNS lookups were sent to
+// (sockets/sfdnsres.cpp), so it must get this emulator's own identity token rather than a
+// Nextendo one, whichever of the two is linked as well.
+static bool ReplyPrivateServerIdToken(Core::System& system, HLERequestContext& ctx) {
+    if (!Sockets::OnlineRedirect::Get()->enabled) {
+        return false;
+    }
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push(WriteOnlineIdToken(ctx, system));
+    return true;
+}
+
 class EnsureTokenIdCacheAsyncInterface final : public IAsyncContext {
 public:
     explicit EnsureTokenIdCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
@@ -777,7 +791,7 @@ public:
     ~EnsureTokenIdCacheAsyncInterface() = default;
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        if (ReplyNextendoIdToken(system, ctx)) {
+        if (ReplyPrivateServerIdToken(system, ctx) || ReplyNextendoIdToken(system, ctx)) {
             return;
         }
         LOG_WARNING(Service_ACC, "(STUBBED) called");
@@ -863,7 +877,7 @@ private:
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        if (ReplyNextendoIdToken(system, ctx)) {
+        if (ReplyPrivateServerIdToken(system, ctx) || ReplyNextendoIdToken(system, ctx)) {
             return;
         }
         LOG_WARNING(Service_ACC, "(STUBBED) called");
