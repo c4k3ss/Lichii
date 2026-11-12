@@ -1380,7 +1380,8 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                                     inst->GetOpcode() == IR::Opcode::ImageSampleDrefExplicitLod,
                     .implicit_lod = inst->GetOpcode() == IR::Opcode::ImageSampleImplicitLod ||
                                     inst->GetOpcode() == IR::Opcode::ImageSampleDrefImplicitLod ||
-                                    inst->GetOpcode() == IR::Opcode::ImageGradient,
+                                    inst->GetOpcode() == IR::Opcode::ImageGradient ||
+                                    inst->GetOpcode() == IR::Opcode::ImageQueryLod,
                     .has_secondary = cbuf.has_secondary,
                     .cbuf_index = cbuf.index,
                     .cbuf_offset = cbuf.offset,

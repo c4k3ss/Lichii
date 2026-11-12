@@ -225,8 +225,8 @@ struct TextureDescriptor {
     bool is_depth;
     bool is_multisample;
     bool is_integer;
-    /// Sampled with an explicit level (TEX.LL, textureLod) / with an implicit one (derivatives
-    /// or gradients). A binding sampled only with explicit levels keeps the guest's LOD range
+    /// Sampled with an explicit level (TEX.LL, textureLod) / with an implicit one (derivatives,
+    /// gradients, or an LOD query, which follows the sampler's clamps too). A binding sampled only with explicit levels keeps the guest's LOD range
     /// even when the sampler's mipmap filter is off (Vulkan's Sampler::HandleFor).
     bool explicit_lod;
     bool implicit_lod;
