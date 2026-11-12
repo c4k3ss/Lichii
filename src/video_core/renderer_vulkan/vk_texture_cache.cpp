@@ -4722,6 +4722,12 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
 
     f32 min_lod = 0.0f;
     f32 max_lod = 0.25f;
+    // With the mipmap filter off, implicit LOD samples read the base level (the 0..0.25 lock
+    // below). An explicit level (TEX.LL) still selects that level on the console, which the
+    // keep_lod_range variant honours with the TSC's own clamp (Sampler::MakeKey).
+    no_mipmap_filter = tsc.mipmap_filter == TextureMipmapFilter::None;
+    tsc_min_lod = tsc.MinLod();
+    tsc_max_lod = std::max(tsc.MaxLod(), tsc_min_lod);
     if (tsc.mipmap_filter != TextureMipmapFilter::None) {
         min_lod = tsc.MinLod();
         max_lod = tsc.MaxLod();
@@ -4765,8 +4771,10 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
     Emplace(VariantKey{});
 }
 
-Sampler::VariantKey Sampler::MakeKey(const ImageView& image_view, bool is_depth) const noexcept {
+Sampler::VariantKey Sampler::MakeKey(const ImageView& image_view, bool is_depth,
+                                     bool explicit_lod) const noexcept {
     VariantKey key{};
+    key.keep_lod_range = no_mipmap_filter && explicit_lod;
     key.reduce_anisotropy = has_added_anisotropy && !image_view.SupportsAnisotropy();
     key.force_nearest = has_linear_filtering && IsPixelFormatInteger(image_view.format);
     key.drop_reduction = has_minmax_reduction && !image_view.SupportsMinmaxFilter();
@@ -4852,6 +4860,11 @@ VkSampler Sampler::Emplace(VariantKey key) {
     if (key.drop_lod_bias) {
         create_info.mipLodBias -= added_lod_bias;
     }
+    if (key.keep_lod_range) {
+        create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        create_info.minLod = tsc_min_lod;
+        create_info.maxLod = tsc_max_lod;
+    }
     if (key.drop_compare) {
         create_info.compareEnable = VK_FALSE;
     }
@@ -4876,8 +4889,8 @@ VkSampler Sampler::Emplace(VariantKey key) {
     return *variants.back().sampler;
 }
 
-VkSampler Sampler::HandleFor(const ImageView& image_view, bool is_depth) {
-    VariantKey key = MakeKey(image_view, is_depth);
+VkSampler Sampler::HandleFor(const ImageView& image_view, bool is_depth, bool explicit_lod) {
+    VariantKey key = MakeKey(image_view, is_depth, explicit_lod);
     if (variants.size() >= MAX_VARIANTS) {
         key.srgb_border = false;
         key.swizzle = {};

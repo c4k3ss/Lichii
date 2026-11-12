@@ -842,7 +842,9 @@ public:
         return *variants.front().sampler;
     }
 
-    [[nodiscard]] VkSampler HandleFor(const ImageView& image_view, bool is_depth);
+    /// `explicit_lod`: the shader samples this binding with an explicit level.
+    [[nodiscard]] VkSampler HandleFor(const ImageView& image_view, bool is_depth,
+                                      bool explicit_lod = false);
 
     /// The guest descriptor and the host state built from it, for EDEN_NX2_FRAME_DUMP_SAMPLED.
     [[nodiscard]] const Tegra::Texture::TSCEntry& Descriptor() const noexcept {
@@ -862,6 +864,9 @@ private:
         bool srgb_border;
         bool drop_compare;
         bool drop_lod_bias; ///< the image was written by the GPU: no Ocarina FSR LOD bias
+        /// The TSC has no mipmap filter but the shader samples with an explicit level: keep the
+        /// TSC's LOD range instead of locking the sampler to level 0 (The Duskbloods' blur chains)
+        bool keep_lod_range;
         std::array<VkComponentSwizzle, 4> swizzle;
 
         bool operator==(const VariantKey&) const noexcept = default;
@@ -878,7 +883,8 @@ private:
 
     static constexpr size_t MAX_VARIANTS = 32;
 
-    [[nodiscard]] VariantKey MakeKey(const ImageView& image_view, bool is_depth) const noexcept;
+    [[nodiscard]] VariantKey MakeKey(const ImageView& image_view, bool is_depth,
+                                     bool explicit_lod) const noexcept;
     [[nodiscard]] VkSampler Find(const VariantKey& key) const noexcept;
     VkSampler Emplace(VariantKey key);
 
@@ -898,6 +904,9 @@ private:
     bool has_linear_filtering{};
     bool has_depth_comparison{};
     f32 added_lod_bias{}; ///< Ocarina FSR part of base_ci.mipLodBias
+    bool no_mipmap_filter{}; ///< the TSC's mipmap filter is None: base_ci locks LOD to level 0
+    f32 tsc_min_lod{};       ///< the TSC's LOD clamp, for keep_lod_range variants
+    f32 tsc_max_lod{};
     bool has_minmax_reduction{};
     bool has_custom_border_colors{};
     bool has_srgb_border_color{};
