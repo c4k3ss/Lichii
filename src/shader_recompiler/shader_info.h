@@ -225,8 +225,9 @@ struct TextureDescriptor {
     bool is_depth;
     bool is_multisample;
     bool is_integer;
-    /// Sampled with an explicit level (TEX.LL, textureLod) somewhere in the program: the host
-    /// sampler must keep the guest's LOD range even when its mipmap filter is off.
+    /// Sampled with an explicit level (TEX.LL, textureLod): the host sampler must keep the
+    /// guest's LOD range even when its mipmap filter is off. Implicit and explicit samples of
+    /// one handle get separate descriptors, so each keeps the console's behaviour.
     bool explicit_lod;
     bool has_secondary;
     u32 cbuf_index;
