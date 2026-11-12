@@ -133,6 +133,11 @@ public:
         return draws;
     }
 
+    /// Whether the last noted draw used a shader named in EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS.
+    [[nodiscard]] bool LastDrawSplits() const noexcept {
+        return last_draw_splits;
+    }
+
     [[nodiscard]] bool CapturingSampled() const noexcept {
         return schedule.Capturing() && schedule.Sampled();
     }
@@ -254,6 +259,7 @@ private:
     u32 pass_index{};
     u32 pass_first_draw{};
     u32 draws{};
+    bool last_draw_splits{};
     u32 dispatches{};
 
     std::thread writer;

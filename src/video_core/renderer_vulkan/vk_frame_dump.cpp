@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <charconv>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -511,8 +512,35 @@ void FrameDump::NoteLaunch(u64 shader_hash, const std::array<u32, 3>& grid,
     Enqueue({.tags = tags + "}"});
 }
 
+namespace {
+// EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS=<hex hash>[,<hex hash>...]: draws using any of these
+// shaders get their own capture pass entry (see RasterizerVulkan::FrameDumpAfterDraw).
+const std::vector<u64>& SplitShaders() {
+    static const std::vector<u64> hashes = [] {
+        std::vector<u64> list;
+        const char* value = std::getenv("EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS");
+        for (std::string_view rest = value ? value : ""; !rest.empty();) {
+            const size_t comma = rest.find(',');
+            const std::string_view item = rest.substr(0, comma);
+            rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+            u64 hash = 0;
+            const auto [end, error] = std::from_chars(item.data(), item.data() + item.size(), hash, 16);
+            if (error == std::errc{} && end == item.data() + item.size() && hash != 0) {
+                list.push_back(hash);
+            }
+        }
+        return list;
+    }();
+    return hashes;
+}
+} // Anonymous namespace
+
 void FrameDump::NoteDraw(std::span<const u64> shader_hashes) {
     ++draws;
+    const auto& split = SplitShaders();
+    last_draw_splits = !split.empty() && std::ranges::any_of(shader_hashes, [&](u64 hash) {
+        return hash != 0 && std::ranges::find(split, hash) != split.end();
+    });
     for (const u64 hash : shader_hashes) {
         if (hash != 0 && pass_hashes.size() < 32 &&
             std::ranges::find(pass_hashes, hash) == pass_hashes.end()) {

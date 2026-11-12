@@ -1677,14 +1677,21 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 }
 
 void RasterizerVulkan::FrameDumpAfterDraw() {
-    if (!frame_dump.Capturing() || !FrameDumpDrawBreak(frame_dump.Draws())) {
+    if (!frame_dump.Capturing()) {
+        return;
+    }
+    if (!FrameDumpDrawBreak(frame_dump.Draws()) && !frame_dump.LastDrawSplits()) {
         return;
     }
     // EDEN_NX2_FRAME_DUMP_DRAWS=<first>-<last>: close the capture's pass after each draw in
     // the range (and after the one before it), so every draw of a render pass lands in the
-    // manifest as its own pass entry. EndPass records the targets, which leaves the Vulkan
-    // render pass; the next draw begins a new one on the same framebuffer. Test knob only:
-    // a pass whose deferred MSAA clear stores with DONT_CARE loses its samples at the split.
+    // manifest as its own pass entry. EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS=<hash>,... does the
+    // same after every draw that uses one of those shaders (the draw before the first such
+    // draw of a pass is not split off: its output is the previous pass entry's end state
+    // unless the first split draw is also the pass's first). EndPass records the targets,
+    // which leaves the Vulkan render pass; the next draw begins a new one on the same
+    // framebuffer. Test knobs only: a pass whose deferred MSAA clear stores with DONT_CARE
+    // loses its samples at the split.
     frame_dump.EndPass();
 }
 
