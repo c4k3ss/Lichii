@@ -1048,7 +1048,6 @@ public:
     u32 Add(const TextureDescriptor& desc) {
         const u32 index{Add(texture_descriptors, desc, [&desc](const auto& existing) {
             return desc.type == existing.type && desc.is_depth == existing.is_depth &&
-                   desc.explicit_lod == existing.explicit_lod &&
                    desc.has_secondary == existing.has_secondary &&
                    desc.cbuf_index == existing.cbuf_index &&
                    desc.cbuf_offset == existing.cbuf_offset &&
@@ -1062,6 +1061,8 @@ public:
         // TODO: Read this from TIC
         texture_descriptors[index].is_multisample |= desc.is_multisample;
         texture_descriptors[index].is_integer |= desc.is_integer;
+        texture_descriptors[index].explicit_lod |= desc.explicit_lod;
+        texture_descriptors[index].implicit_lod |= desc.implicit_lod;
         return index;
     }
 
@@ -1377,6 +1378,9 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                     .is_integer = is_integer,
                     .explicit_lod = inst->GetOpcode() == IR::Opcode::ImageSampleExplicitLod ||
                                     inst->GetOpcode() == IR::Opcode::ImageSampleDrefExplicitLod,
+                    .implicit_lod = inst->GetOpcode() == IR::Opcode::ImageSampleImplicitLod ||
+                                    inst->GetOpcode() == IR::Opcode::ImageSampleDrefImplicitLod ||
+                                    inst->GetOpcode() == IR::Opcode::ImageGradient,
                     .has_secondary = cbuf.has_secondary,
                     .cbuf_index = cbuf.index,
                     .cbuf_offset = cbuf.offset,

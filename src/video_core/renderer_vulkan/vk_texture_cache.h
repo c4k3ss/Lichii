@@ -842,7 +842,7 @@ public:
         return *variants.front().sampler;
     }
 
-    /// `explicit_lod`: the shader samples this binding with an explicit level.
+    /// `explicit_lod`: the shader samples this binding with explicit levels only.
     [[nodiscard]] VkSampler HandleFor(const ImageView& image_view, bool is_depth,
                                       bool explicit_lod = false);
 
