@@ -4145,8 +4145,32 @@ void RasterizerVulkan::UpdateDepthBias(Tegra::Engines::Maxwell3D::Regs& regs) {
         }
     }
 
-    scheduler.Record([constant = units, clamp = regs.depth_bias_clamp,
-                      factor = regs.slope_scale_depth_bias, this](vk::CommandBuffer cmdbuf) {
+    // EDEN_NX2_DEPTH_BIAS_SCALE=<f>: multiplies the constant and slope bias (shadow acne tests);
+    // EDEN_NX2_DEPTH_BIAS_TRACE=1 logs the first distinct bias states with their depth format.
+    static const float bias_scale = [] {
+        const char* const text = std::getenv("EDEN_NX2_DEPTH_BIAS_SCALE");
+        return text ? static_cast<float>(std::atof(text)) : 1.0f;
+    }();
+    static const bool bias_trace = std::getenv("EDEN_NX2_DEPTH_BIAS_TRACE") != nullptr;
+    float slope = regs.slope_scale_depth_bias;
+    if (bias_scale != 1.0f) {
+        units *= bias_scale;
+        slope *= bias_scale;
+    }
+    if (bias_trace) {
+        static std::set<std::tuple<u32, float, float, float>> seen;
+        if (seen.size() < 32 &&
+            seen.emplace(static_cast<u32>(regs.zeta.format), units, slope, regs.depth_bias_clamp)
+                .second) {
+            LOG_INFO(Render_Vulkan,
+                     "Depth bias: zeta format {:#x} raw units {} -> constant {} slope {} clamp {} "
+                     "(bias control {})",
+                     static_cast<u32>(regs.zeta.format), regs.depth_bias, units, slope,
+                     regs.depth_bias_clamp, device.IsExtDepthBiasControlSupported());
+        }
+    }
+    scheduler.Record([constant = units, clamp = regs.depth_bias_clamp, factor = slope,
+                      this](vk::CommandBuffer cmdbuf) {
         if (device.IsExtDepthBiasControlSupported()) {
             static VkDepthBiasRepresentationInfoEXT bias_info{
                 .sType = VK_STRUCTURE_TYPE_DEPTH_BIAS_REPRESENTATION_INFO_EXT,
