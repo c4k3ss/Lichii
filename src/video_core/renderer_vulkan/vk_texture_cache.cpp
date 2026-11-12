@@ -4864,6 +4864,12 @@ VkSampler Sampler::Emplace(VariantKey key) {
         create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         create_info.minLod = tsc_min_lod;
         create_info.maxLod = tsc_max_lod;
+        static u32 logged{};
+        if (logged++ < 8) {
+            LOG_INFO(Render_Vulkan,
+                     "Sampler with no mipmap filter keeps its LOD range {}..{} for explicit-level samples",
+                     tsc_min_lod, tsc_max_lod);
+        }
     }
     if (key.drop_compare) {
         create_info.compareEnable = VK_FALSE;

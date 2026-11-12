@@ -410,6 +410,8 @@ std::optional<std::pair<GPUVAddr, u32>> SampledKey(const FrameDump::Sampled& tex
 bool FrameDump::RecordSampled(const Sampled& texture, u32 index, std::string name,
                               std::string tags) {
     tags += SamplerJson(texture.sampler);
+    tags += fmt::format(R"(,"view_levels":{},"view_layers":{})", texture.view->range.extent.levels,
+                        texture.view->range.extent.layers);
     if (const auto target = MakeTarget(*texture.view, index)) {
         return Record(*target, std::move(name), std::move(tags));
     }
