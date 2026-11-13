@@ -180,16 +180,20 @@ void TextureCache<P>::RunGarbageCollector(bool out_of_memory) {
             return false;
         }
         if (must_download) {
-            WriteBackImage(image_id);
             // An image that overlaps others badly shares memory with them. Dropped without a
             // write-back, the next image made over that memory loads whatever an older image left
             // there: The Duskbloods' HUD layer came back as its character portraits. The overlaps
             // drawn after it are written back again over it, oldest first, so each part of the
-            // memory ends with its newest data.
+            // memory ends with its newest data. Chosen before the write-back: pulling the image's
+            // newer aliases in raises its modification tick, which would hide overlaps newer than
+            // the image but older than an alias of it.
+            boost::container::small_vector<ImageId, 8> newer_overlaps;
             if (True(image.flags & ImageFlagBits::BadOverlap)) {
-                for (const ImageId overlap_id : NewerGpuOverlaps(image)) {
-                    WriteBackImage(overlap_id);
-                }
+                newer_overlaps = NewerGpuOverlaps(image);
+            }
+            WriteBackImage(image_id);
+            for (const ImageId overlap_id : newer_overlaps) {
+                WriteBackImage(overlap_id);
             }
             ++gc_download_deletes;
             ClearStaleImage(image);
