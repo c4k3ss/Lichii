@@ -504,6 +504,10 @@ private:
     [[nodiscard]] boost::container::small_vector<ImageId, 8> NewerGpuOverlaps(
         const ImageBase& image) const;
 
+    /// Whether an image's host contents may be written to guest memory (IsDownloadable, or an
+    /// image already written back whose host copy still matches).
+    [[nodiscard]] bool CanWriteBack(const ImageBase& image) const noexcept;
+
     /// Copies a GPU-written image back to guest memory and waits for it.
     void WriteBackImage(Image& image);
 

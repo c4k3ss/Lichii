@@ -1292,7 +1292,7 @@ boost::container::small_vector<ImageId, 8> TextureCache<P>::NewerGpuOverlaps(
         for (const ImageId overlap_id : written.overlapping_images) {
             const ImageBase& overlap = slot_images[overlap_id];
             if (overlap.modification_tick <= written.modification_tick ||
-                !IsDownloadable(overlap) || std::ranges::find(newer, overlap_id) != newer.end()) {
+                !CanWriteBack(overlap) || std::ranges::find(newer, overlap_id) != newer.end()) {
                 continue;
             }
             newer.push_back(overlap_id);
@@ -1304,12 +1304,49 @@ boost::container::small_vector<ImageId, 8> TextureCache<P>::NewerGpuOverlaps(
 }
 
 template <class P>
+bool TextureCache<P>::CanWriteBack(const ImageBase& image) const noexcept {
+    // Like IsDownloadable, but an overlap the cache already wrote back (a flush clears
+    // GpuModified) still holds the newest contents and must be written again over an older image
+    // that is written back after it. CPU-modified images are not written: the host copy is stale.
+    if (True(image.flags & ImageFlagBits::GpuModified)) {
+        return IsDownloadable(image);
+    }
+    if (True(image.flags & (ImageFlagBits::CpuModified | ImageFlagBits::Unbacked |
+                            ImageFlagBits::TrimmedLevels))) {
+        return false;
+    }
+    if (image.info.num_samples == 1) {
+        return true;
+    }
+    if constexpr (P::HAS_MSAA_DOWNLOADS) {
+        return runtime.CanDownloadMsaa(image.info);
+    } else {
+        return false;
+    }
+}
+
+template <class P>
 void TextureCache<P>::WriteBackImage(Image& image) {
+    // Overlaps are linked by device address, so an overlap can live in another GPU address
+    // space than the one bound now: swizzle through the space the image was registered in.
+    Tegra::MemoryManager* memory = gpu_memory;
+    if (image.address_space != current_address_space) {
+        std::unique_lock lock{this->config_mutex};
+        const auto space = this->address_spaces.find(image.address_space);
+        if (space == this->address_spaces.end() || space->second.gpu_memory == nullptr) {
+            LOG_WARNING(HW_GPU,
+                        "Image {:#x} belongs to GPU address space {} which is gone; not written "
+                        "back",
+                        image.gpu_addr, image.address_space);
+            return;
+        }
+        memory = space->second.gpu_memory;
+    }
     auto map = runtime.DownloadStagingBuffer(image.unswizzled_size_bytes);
     const auto copies = FullDownloadCopies(image.info);
     image.DownloadMemory(map, copies);
     runtime.Finish();
-    SwizzleImage(*gpu_memory, image.gpu_addr, image.info, copies, map.mapped_span,
+    SwizzleImage(*memory, image.gpu_addr, image.info, copies, map.mapped_span,
                  swizzle_data_buffer);
 }
 

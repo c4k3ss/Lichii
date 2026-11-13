@@ -144,7 +144,14 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
         [[maybe_unused]] const auto current_entry_type = GetEntry(current_gpu_addr, false);
         SetEntry(current_gpu_addr, entry_type, false);
-        if (current_entry_type != entry_type) {
+        // A mapped page pointed at other memory changed as much as one whose type changed: the
+        // caches' resolved ranges (buffer_cache's virtual range cache) must hear about it too.
+        bool changed = current_entry_type != entry_type;
+        if (!changed && entry_type == EntryType::Mapped) {
+            changed = page_table[PageEntryIndex(current_gpu_addr, false)] !=
+                      static_cast<u32>((dev_addr + offset) >> cpu_page_bits);
+        }
+        if (changed) {
             if (modified_size == 0) {
                 modified_start = current_gpu_addr;
             }
@@ -191,7 +198,12 @@ GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
         [[maybe_unused]] const auto current_entry_type = GetEntry(current_gpu_addr, true);
         SetEntry(current_gpu_addr, entry_type, true);
-        if (current_entry_type != entry_type) {
+        bool changed = current_entry_type != entry_type;
+        if (!changed && entry_type == EntryType::Mapped) {
+            changed = big_page_table_dev[PageEntryIndex(current_gpu_addr, true)] !=
+                      static_cast<u32>((dev_addr + offset) >> cpu_page_bits);
+        }
+        if (changed) {
             if (modified_size == 0) {
                 modified_start = current_gpu_addr;
             }
