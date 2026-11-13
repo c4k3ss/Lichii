@@ -508,8 +508,9 @@ private:
     /// image already written back whose host copy still matches).
     [[nodiscard]] bool CanWriteBack(const ImageBase& image) const noexcept;
 
-    /// Copies a GPU-written image back to guest memory and waits for it.
-    void WriteBackImage(Image& image);
+    /// Copies a GPU-written image back to guest memory and waits for it, after pulling in its
+    /// newer aliases.
+    void WriteBackImage(ImageId image_id);
 
     void RefreshContents(Image& image, ImageId image_id);
 

@@ -180,7 +180,7 @@ void TextureCache<P>::RunGarbageCollector(bool out_of_memory) {
             return false;
         }
         if (must_download) {
-            WriteBackImage(image);
+            WriteBackImage(image_id);
             // An image that overlaps others badly shares memory with them. Dropped without a
             // write-back, the next image made over that memory loads whatever an older image left
             // there: The Duskbloods' HUD layer came back as its character portraits. The overlaps
@@ -188,7 +188,7 @@ void TextureCache<P>::RunGarbageCollector(bool out_of_memory) {
             // memory ends with its newest data.
             if (True(image.flags & ImageFlagBits::BadOverlap)) {
                 for (const ImageId overlap_id : NewerGpuOverlaps(image)) {
-                    WriteBackImage(slot_images[overlap_id]);
+                    WriteBackImage(overlap_id);
                 }
             }
             ++gc_download_deletes;
@@ -1326,7 +1326,12 @@ bool TextureCache<P>::CanWriteBack(const ImageBase& image) const noexcept {
 }
 
 template <class P>
-void TextureCache<P>::WriteBackImage(Image& image) {
+void TextureCache<P>::WriteBackImage(ImageId image_id) {
+    // An alias drawn to after this image holds bytes this image's host copy lacks; bring them in
+    // first, as a draw sampling the image would, so the write-back cannot put older bytes under
+    // the alias. (Must come first: it can rescale the image and change its flags.)
+    SynchronizeAliases(image_id);
+    Image& image = slot_images[image_id];
     // Overlaps are linked by device address, so an overlap can live in another GPU address
     // space than the one bound now: swizzle through the space the image was registered in.
     Tegra::MemoryManager* memory = gpu_memory;
