@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -74,6 +73,11 @@ struct Profile {
     bool support_storage_image_array_nonuniform_indexing{};
     bool support_uniform_texel_buffer_array_nonuniform_indexing{};
     bool support_storage_texel_buffer_array_nonuniform_indexing{};
+    /// Routed global memory accesses pick their storage buffer with OpSelect on a NonUniform
+    /// variable pointer instead of one branch per candidate buffer. NVIDIA's driver hangs on the
+    /// branch chain (#619). AMD lowers the NonUniform access to a waterfall loop, which spills in
+    /// vertex and mesh shaders that already use every register, so it keeps the chain.
+    bool select_global_memory_buffer{};
 
     bool warp_size_potentially_larger_than_guest{};
 
@@ -126,6 +130,10 @@ struct Profile {
 
     /// Maxwell and earlier nVidia architectures have broken robust support
     bool has_broken_robust{};
+    /// RADV before Mesa 26.2.5 keeps stale vertex user SGPR state when a mesh shader without the
+    /// grid size or draw index is bound, and the next mesh draw hangs the GPU (Mesa MR 45092).
+    /// Native mesh shaders read the grid size there so that RADV gives them that SGPR.
+    bool has_broken_mesh_user_sgprs{};
 
     u64 min_ssbo_alignment{};
     u32 max_user_clip_distances{};

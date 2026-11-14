@@ -8,6 +8,7 @@
 namespace Settings {
 
 inline constexpr u64 MarioKartWorldProgramId = 0x0400C3F00006E000ULL;
+inline constexpr u64 HyruleWarriorsProgramId = 0x04003F40232DE000ULL;
 
 // The Duskbloods network test (0400D1D02399A000) needs these whatever the saved settings say:
 // the LLE error applet crashes the emulator on the game's first error dialog, handheld mode

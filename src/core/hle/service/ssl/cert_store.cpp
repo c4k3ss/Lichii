@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <fstream>
@@ -18,6 +17,7 @@
 #include "core/hle/service/sockets/online_friends.h"
 #include "core/hle/service/sockets/online_redirect.h"
 #include "core/hle/service/ssl/cert_store.h"
+#include "core/internal_network/local_redirect.h"
 
 namespace Service::SSL {
 
@@ -75,6 +75,14 @@ CertStore::CertStore(Core::System& system) {
                           !Sockets::OnlineRedirect::ServerCa().empty();
 
     constexpr u64 CertStoreDataId = 0x0100000000000800ULL;
+
+    if (const auto test_ca = Network::LocalRedirect::TestCa(); !test_ca.empty()) {
+        constexpr auto TestCaId = static_cast<CaCertificateId>(0x7FFF0001);
+        m_test_ca.emplace(TestCaId, Certificate{
+                                        .status = TrustedCertStatus::EnabledTrusted,
+                                        .der_data = {test_ca.begin(), test_ca.end()},
+                                    });
+    }
 
     auto& fsc = system.GetFileSystemController();
 
@@ -136,6 +144,9 @@ CertStore::~CertStore() = default;
 
 template <typename F>
 void CertStore::ForEachCertificate(std::span<const CaCertificateId> certificate_ids, F&& f) {
+    if (m_test_ca) {
+        f(*m_test_ca);
+    }
     if (certificate_ids.size() == 1 && certificate_ids.front() == CaCertificateId::All) {
         for (const auto& entry : m_certs) {
             f(entry);
