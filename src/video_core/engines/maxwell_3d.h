@@ -25,6 +25,7 @@
 #include "video_core/engines/engine_upload.h"
 #include "video_core/gpu.h"
 #include "video_core/macro.h"
+#include "video_core/nx2_backx.h"
 #include "video_core/nx2_fast_draw.h"
 #include "video_core/nx2_perf.h"
 #include "video_core/textures/texture.h"
@@ -3480,6 +3481,16 @@ private:
         return value == nullptr || value[0] != '0';
     }();
     const bool perf_verify = VideoCommon::Nx2Perf::Verify();
+    /// #1585's register blocks on the split front and whole-block state writes. Off for The
+    /// Duskbloods (unless EDEN_NX2_DUSK_BACKX_PIECES names state_blocks): a mis-ordered
+    /// vertex/index first or stream address register in one block gave the hub ribbons a right
+    /// anchor and a wrong far endpoint. Per-register writes are the cost before 19ae2d1ebf.
+    const bool state_blocks_off =
+        VideoCommon::BackX::DuskOff(VideoCommon::BackX::DuskPiece::StateBlocks);
+    /// #1095's direct state register write in CallMethod. Off for The Duskbloods (unless
+    /// EDEN_NX2_DUSK_BACKX_PIECES names direct_state_write): CallMethodFast, as before #1095.
+    const bool direct_state_write =
+        !VideoCommon::BackX::DuskOff(VideoCommon::BackX::DuskPiece::DirectStateWrite);
     const bool reg_block_verify = [] {
         const char* value = std::getenv("EDEN_NX2_REG_BLOCK_VERIFY");
         return value != nullptr && value[0] == '1';

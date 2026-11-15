@@ -528,7 +528,7 @@ void Maxwell3D::CallMethod(Core::System& system, u32 method, u32 method_argument
     // takes the longer path below; the profile, the write history and the first-write trace
     // leave fast_maxwell3d off.
     if (fast_maxwell3d && executing_macro == 0 && method < MacroRegistersStart &&
-        !execution_mask[method] && !perf_verify) {
+        !execution_mask[method] && !perf_verify && direct_state_write) {
         return WriteStateRegister(method, method_argument);
     }
     if (!fast_maxwell3d || executing_macro != 0 || method >= MacroRegistersStart ||
@@ -700,7 +700,7 @@ void Maxwell3D::WriteStateRegisters(Core::System& system, std::span<const u64, 4
     // for registers the back changes itself: each normally changes the register here too, and is
     // then all CallMethod would do for it. Otherwise, and where CallMethod takes other paths,
     // the writes go one by one.
-    bool changes = fast_maxwell3d && executing_macro == 0 && !perf_verify &&
+    bool changes = fast_maxwell3d && executing_macro == 0 && !perf_verify && !state_blocks_off &&
                    SkipSameValueWrites() &&
                    shadow_state.shadow_ram_control != Regs::ShadowRamControl::Replay &&
                    !draw_manager.HasDeferredDraw();
@@ -1574,7 +1574,8 @@ Maxwell3D::FrontState& Maxwell3D::Front(Core::System& system, VideoCommon::GpuSp
         std::memcpy(front->shadow.data(), shadow_state.reg_array.data(), sizeof(front->shadow));
         front->control = shadow_state.shadow_ram_control;
         front->skip_same = SkipSameValueWrites() && FrontSkipSame();
-        front->state_blocks = front->skip_same && fast_maxwell3d && !perf_verify;
+        front->state_blocks =
+            front->skip_same && fast_maxwell3d && !perf_verify && !state_blocks_off;
         front->split_start = split.Starts();
         front->executing_macro = executing_macro;
         front->parameters = std::move(macro_params);
