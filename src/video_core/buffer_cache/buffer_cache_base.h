@@ -442,7 +442,11 @@ public:
 
     bool DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
 
-    bool DMAClear(GPUVAddr src_address, u64 amount, u32 value);
+    /// guest_written: the caller also writes the value to guest memory (the DMA engine does), so
+    /// the range is no longer GPU-modified. False for a clear that exists on the host only (a
+    /// render target's zero clear): the range stays GPU-modified, so an evicted buffer downloads
+    /// the zeros instead of being rebuilt from stale guest bytes.
+    bool DMAClear(GPUVAddr src_address, u64 amount, u32 value, bool guest_written = true);
 
     /// Switch 2 GPU-written command lists (nx2.h, g_nx2_command_list_pages). While collecting (a
     /// compute dispatch or a DMA copy being recorded), writes to command list pages are noted;

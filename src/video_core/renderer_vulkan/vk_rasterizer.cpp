@@ -2203,9 +2203,11 @@ void RasterizerVulkan::Clear(u32 layer_count) {
             return;
         }
         std::scoped_lock buffer_lock{buffer_cache.mutex};
-        // Piece by piece: DMAClear clears one device-contiguous range.
+        // Piece by piece: DMAClear clears one device-contiguous range. Guest memory is not
+        // written (the texture cache owns it as GPU-modified), so the buffer range stays
+        // GPU-modified too: evicted, it downloads the zeros instead of reloading stale bytes.
         for (const auto& [address, size] : zeroed_memory) {
-            buffer_cache.DMAClear(address, size / sizeof(u32), 0);
+            buffer_cache.DMAClear(address, size / sizeof(u32), 0, false);
         }
     };
     std::scoped_lock lock{texture_cache.mutex};

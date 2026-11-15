@@ -1518,7 +1518,7 @@ bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 am
 }
 
 template <class P>
-bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
+bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value, bool guest_written) {
     const std::optional<DAddr> cpu_dst_address = gpu_memory->GpuToCpuAddress(dst_address);
     if (!cpu_dst_address) {
         return false;
@@ -1544,6 +1544,9 @@ bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
     const u32 offset = dest_buffer.Offset(*cpu_dst_address);
     runtime.ClearBuffer(dest_buffer, offset, size, value);
     dest_buffer.MarkUsage(offset, size);
+    if (!guest_written) {
+        MarkWrittenBuffer(buffer, *cpu_dst_address, static_cast<u32>(size));
+    }
     if (Tegra::g_nx2_ampere.load(std::memory_order_relaxed)) {
         Nx2NoteListWrite(buffer, *cpu_dst_address, size);
     }
