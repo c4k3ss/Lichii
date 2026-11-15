@@ -1531,6 +1531,8 @@ bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
     }
 
     ClearDownload(*cpu_dst_address, size);
+    // As DMACopy: a repacked vertex buffer over the cleared range is rebuilt before the next draw.
+    MarkVertexBuffersStale(*cpu_dst_address, size);
     gpu_modified_ranges.Subtract(*cpu_dst_address, size);
     NoteUniformWrite(*cpu_dst_address, size);
 
