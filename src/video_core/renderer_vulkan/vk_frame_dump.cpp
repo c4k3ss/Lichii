@@ -548,6 +548,15 @@ const std::vector<u64>& SplitShaders() {
 }
 } // Anonymous namespace
 
+bool FrameDump::WantsDrawInputs() const noexcept {
+    return SplitShaders().empty() || last_draw_splits;
+}
+
+bool FrameDump::WantsDispatchInputs(u64 shader_hash) const noexcept {
+    const auto& split = SplitShaders();
+    return split.empty() || std::ranges::find(split, shader_hash) != split.end();
+}
+
 void FrameDump::NoteDraw(std::span<const u64> shader_hashes) {
     ++draws;
     const auto& split = SplitShaders();

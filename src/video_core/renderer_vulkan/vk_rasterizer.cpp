@@ -1276,7 +1276,8 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func, bool is_in
                 *pipeline, pipeline_cache.CaptureGraphicsPrograms(pipeline->ShaderHashes()));
         }
         bool recorded = false;
-        if (frame_dump.CapturingSampled()) {
+        const bool wants_inputs = frame_dump.WantsDrawInputs();
+        if (frame_dump.CapturingSampled() && wants_inputs) {
             boost::container::small_vector<FrameDump::Sampled, 16> sampled;
             for (const auto& image : pipeline->SampledImages()) {
                 sampled.push_back({image.stage, image.tic, &texture_cache.GetImageView(image.id),
@@ -1284,7 +1285,7 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func, bool is_in
             }
             recorded = frame_dump.NoteSampled(sampled);
         }
-        if (frame_dump.CapturingBuffers()) {
+        if (frame_dump.CapturingBuffers() && wants_inputs) {
             recorded |= FrameDumpBuffers(false, pipeline->ShaderHashes());
         }
         if (recorded) {
@@ -2488,7 +2489,8 @@ void RasterizerVulkan::DispatchCompute() {
             *pipeline, pipeline_cache.CaptureComputeProgram(),
             std::span(reinterpret_cast<const u8*>(&launch), sizeof(launch)));
     }
-    if (frame_dump.CapturingSampled()) {
+    const bool wants_inputs = frame_dump.WantsDispatchInputs(pipeline->ShaderHash());
+    if (frame_dump.CapturingSampled() && wants_inputs) {
         boost::container::small_vector<FrameDump::Sampled, 16> sampled;
         for (const auto& image : pipeline->SampledImages()) {
             sampled.push_back({5, image.tic, &texture_cache.GetImageView(image.id),
@@ -2496,7 +2498,7 @@ void RasterizerVulkan::DispatchCompute() {
         }
         frame_dump.NoteDispatchSampled(pipeline->ShaderHash(), sampled);
     }
-    if (frame_dump.CapturingBuffers()) {
+    if (frame_dump.CapturingBuffers() && wants_inputs) {
         FrameDumpBuffers(true, std::array{pipeline->ShaderHash()});
     }
 

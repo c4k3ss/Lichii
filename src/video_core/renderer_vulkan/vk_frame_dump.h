@@ -150,6 +150,13 @@ public:
         return std::exchange(last_draw_splits, false);
     }
 
+    /// Whether the draw just noted (NoteDraw) should have its sampled textures and buffers
+    /// recorded: every draw without EDEN_NX2_FRAME_DUMP_SPLIT_SHADERS, else only the draws it
+    /// names, so a sampled capture of a few passes fits the size cap.
+    [[nodiscard]] bool WantsDrawInputs() const noexcept;
+    /// The same for a dispatch of `shader_hash`.
+    [[nodiscard]] bool WantsDispatchInputs(u64 shader_hash) const noexcept;
+
     [[nodiscard]] bool CapturingSampled() const noexcept {
         return schedule.Capturing() && schedule.Sampled();
     }
